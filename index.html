@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Randevu Takvimi</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            text-align: center;
+        }
+        h1 {
+            margin-bottom: 30px;
+        }
+        .calendar-container {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+        table {
+            border-collapse: collapse;
+            width: 80%;
+            margin: 0 auto;
+            text-align: center;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 10px;
+        }
+        th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+        }
+        td {
+            position: relative;
+        }
+        .randevu-button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 8px 12px;
+            border: none;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        .randevu-button:hover {
+            background-color: #45a049;
+        }
+        .hours {
+            width: 100px;
+            background-color: #f9f9f9;
+            font-weight: bold;
+        }
+        .day {
+            width: 150px;
+        }
+        .closed {
+            color: red;
+            font-weight: bold;
+        }
+        /* Popup stilini ayarla */
+        .popup {
+            display: none;
+            position: fixed;
+            z-index: 999;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            justify-content: center;
+            align-items: center;
+        }
+        .popup-content {
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: left;
+            width: 300px;
+        }
+        .popup-content input, .popup-content select {
+            width: 100%;
+            padding: 8px;
+            margin: 8px 0;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        .close-btn {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        .close-btn:hover {
+            background-color: #45a049;
+        }
+    </style>
+</head>
+<body>
+
+<h1>Randevu Takvimi</h1>
+
+<div class="calendar-container">
+    <table>
+        <thead>
+            <tr>
+                <th class="hours">Saat</th>
+                <th class="day" id="day1"></th>
+                <th class="day" id="day2"></th>
+                <th class="day" id="day3"></th>
+                <th class="day" id="day4"></th>
+                <th class="day" id="day5"></th>
+                <th class="day" id="day6"></th>
+                <th class="day" id="day7"></th>
+            </tr>
+        </thead>
+        <tbody id="calendar-body">
+        </tbody>
+    </table>
+</div>
+
+<!-- Popup Penceresi -->
+<div class="popup" id="popup">
+    <div class="popup-content">
+        <h2>Randevu Bilgileri</h2>
+        <label for="name">İsim</label>
+        <input type="text" id="name" required>
+        <label for="surname">Soyisim</label>
+        <input type="text" id="surname" required>
+        <label for="phone">Telefon Numarası</label>
+        <input type="text" id="phone" required>
+        <label for="operation">Yapılacak İşlem</label>
+        <input type="text" id="operation" required>
+        <button class="close-btn" onclick="submitForm()">Randevuyu Onayla</button>
+    </div>
+</div>
+
+<script>
+    let appointments = {}; // Randevu bilgilerini saklamak için bir nesne
+
+    // Tarihleri güncelleme fonksiyonu
+    function updateDates() {
+        const days = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"];
+        let today = new Date();
+        
+        for (let i = 0; i < 7; i++) {
+            let futureDate = new Date(today);
+            futureDate.setDate(today.getDate() + i);
+            let dayName = days[futureDate.getDay() === 0 ? 6 : futureDate.getDay() - 1];
+            let dayElement = document.getElementById(`day${i + 1}`);
+            dayElement.innerHTML = `${dayName}<br>${futureDate.toLocaleDateString('tr-TR')}`;
+        }
+
+        createCalendarBody(today);
+    }
+
+    // Takvim içeriğini oluşturma fonksiyonu
+    function createCalendarBody(today) {
+        const tbody = document.getElementById('calendar-body');
+        tbody.innerHTML = ""; // Mevcut tablo içeriğini temizle
+        const hours = [];
+        for (let i = 9; i <= 19; i++) {
+            hours.push(i + ":00");
+        }
+
+        for (let i = 0; i < hours.length; i++) {
+            let row = "<tr><td class='hours'>" + hours[i] + "</td>";
+
+            for (let j = 0; j < 7; j++) {
+                let futureDate = new Date(today);
+                futureDate.setDate(today.getDate() + j);
+                const dateKey = `${futureDate.toLocaleDateString('tr-TR')} ${hours[i]}`;
+
+                // Eğer gün Pazar ise 'Kapalıyız' yaz
+                if (futureDate.getDay() === 0) {
+                    row += "<td class='closed'>Kapalıyız</td>";
+                } else {
+                    if (appointments[dateKey]) {
+                        row += `<td>${appointments[dateKey]}<br></td>`; // Randevu bilgisi varsa göster
+                    } else {
+                        row += `<td><button class='randevu-button' onclick='showPopup("${dateKey}")'>Randevu Al</button></td>`;
+                    }
+                }
+            }
+
+            row += "</tr>";
+            tbody.innerHTML += row;
+        }
+    }
+
+    // Gece yarısı saat 00:00'da takvimi yenile
+    function checkMidnight() {
+        let now = new Date();
+        let millisTillMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 0) - now;
+        setTimeout(function() {
+            updateDates();
+            checkMidnight(); // Ertesi gece yine kontrol
+        }, millisTillMidnight);
+    }
+
+    // Sayfa yüklendiğinde tarihleri güncelle
+    window.onload = function() {
+        updateDates();
+        checkMidnight(); // Gece 00:00'da otomatik yenile
+    };
+
+    // Popup göster
+    let selectedDate = '';
+    function showPopup(dateKey) {
+        selectedDate = dateKey; // Seçilen tarihi sakla
+        document.getElementById("popup").style.display = "flex";
+    }
+
+    // Telegram bot token ve grup ID
+    const TELEGRAM_BOT_TOKEN = '7715481109:AAEjQ6niHXZ7DbTEVfSSeMvK8P9QXqqqbdY'; // Tokenınızı buraya yerleştirin
+    const TELEGRAM_GROUP_ID = '-4567615814'; // Grubunuzun ID'sini buraya yerleştirin
+
+    // Randevu alındığında Telegram'a mesaj gönderme fonksiyonu
+    function sendTelegramMessage(message) {
+        const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
+        const params = {
+            chat_id: TELEGRAM_GROUP_ID,
+            text: message,
+            parse_mode: 'HTML', // HTML formatında mesaj
+        };
+
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(params),
+        }).then(response => {
+            if (!response.ok) {
+                throw new Error('Telegram API hatası');
+            }
+            console.log('Mesaj gönderildi:', response);
+        }).catch(error => {
+            console.error('Mesaj gönderilirken hata:', error);
+        });
+    }
+
+    // Formu gönderme fonksiyonu
+    function submitForm() {
+        const name = document.getElementById("name").value;
+        const surname = document.getElementById("surname").value;
+        const phone = document.getElementById("phone").value;
+        const operation = document.getElementById("operation").value;
+
+        // Randevu bilgilerini nesneye ekle
+        appointments[selectedDate] = `Ad: ${name}, Soyad: ${surname}, Telefon: ${phone}, İşlem: ${operation}`;
+
+        // Randevu bilgilerini Telegram'a gönder
+        const message = `Yeni Randevu!\nTarih: ${selectedDate}\n${appointments[selectedDate]}`;
+        sendTelegramMessage(message);
+
+        // Popup'ı kapat
+        document.getElementById("popup").style.display = "none";
+
+        // Takvimi güncelle
+        createCalendarBody(new Date());
+    }
+</script>
+</body>
+</html>
